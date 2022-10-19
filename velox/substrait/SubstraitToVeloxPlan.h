@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/tidb/TiDBConnector.h"
 #include "velox/core/PlanNode.h"
 #include "velox/substrait/SubstraitToVeloxExpr.h"
 
@@ -112,6 +113,9 @@ class SubstraitVeloxPlanConverter {
   /// name>:<arg_type0>_<arg_type1>_..._<arg_typeN>
   const std::string& findFunction(uint64_t id) const;
 
+  void setTiDBDataSourceManager(std::shared_ptr<connector::tidb::TiDBDataSourceManager> mgr) {
+      tidbDataSourceManager = mgr;
+  }
  private:
   /// Returns unique ID to use for plan node. Produces sequential numbers
   /// starting from zero.
@@ -151,6 +155,7 @@ class SubstraitVeloxPlanConverter {
   /// Mapping from leaf plan node ID to splits.
   std::unordered_map<core::PlanNodeId, std::shared_ptr<SplitInfo>>
       splitInfoMap_;
+  std::shared_ptr<connector::tidb::TiDBDataSourceManager> tidbDataSourceManager;
 };
 
 } // namespace facebook::velox::substrait

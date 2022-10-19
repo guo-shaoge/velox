@@ -287,7 +287,12 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   if (readRel.has_named_table()) {
       std::cout << "InVelox log build TableScan readRel has_named_table" << std::endl;
   }
-  auto tableHandle = std::make_shared<connector::tidb::TiDBTableHandle>(connector::tidb::TiDBConnectorFactory::kTiDBConnectorName, /* TODO setup id */0);
+  // gjt todo: check readRel.named_table().names_size() is 1
+  auto tableHandle = std::make_shared<connector::tidb::TiDBTableHandle>(
+          connector::tidb::TiDBConnectorFactory::kTiDBConnectorName,
+          readRel.named_table().names()[0],
+          tidbDataSourceManager
+          );
   // just use default, TiDBDataSource doesn't use it for now.
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>> assignments;
   std::vector<std::string> outNames;

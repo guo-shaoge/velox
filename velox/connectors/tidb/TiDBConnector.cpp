@@ -2,11 +2,11 @@
 
 namespace facebook::velox::connector::tidb {
 
-// reg in runTiDBQuery
+// gjt todo: global var not work? makeTiDBQueryCtx instead
 // VELOX_REGISTER_CONNECTOR_FACTORY(std::make_shared<TiDBConnectorFactory>())
 
 // TiDBDataSourceManager& GetTiDBDataSourceManager() {
 //     static TiDBDataSourceManager gTiDBDataSourceManager;
 //     return gTiDBDataSourceManager;
 // }
-}
+} // namespace facebook::velox::connector::tidb

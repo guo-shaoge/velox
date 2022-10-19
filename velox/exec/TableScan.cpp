@@ -85,8 +85,6 @@ RowVectorPtr TableScan::getOutput() {
             tableHandle_,
             columnHandles_,
             connectorQueryCtx_.get());
-        // TODO:
-        connector::GetTiDBDataSourceManager().registerTiDBDataSource(0, dataSource_);
         for (const auto& entry : pendingDynamicFilters_) {
           dataSource_->addDynamicFilter(entry.first, entry.second);
         }

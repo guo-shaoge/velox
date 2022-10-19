@@ -11,38 +11,40 @@ class TiDBDataSource;
 
 using TiDBDataSourcePtr = std::shared_ptr<TiDBDataSource>;
 
-// struct TiDBDataSourceManager {
-//     void registerTiDBDataSource(int64_t id, std::shared_ptr<TiDBDataSource> source) {
-//         std::lock_guard<std::mutex> lock(mu_);
-//         data_sources_.insert({id, source});
-//     }
-// 
-//     TiDBDataSourcePtr getTiDBDataSource(int64_t id) {
-//         std::lock_guard<std::mutex> lock(mu_);
-//         auto iter = data_sources_.find(id);
-//         if (iter == data_sources_.end()) {
-//             return nullptr;
-//         } else {
-//             return iter->second;
-//         }
-//     }
-// 
-//     std::unordered_map<int64_t, std::shared_ptr<TiDBDataSource>> data_sources_;
-//     std::mutex mu_;
-// };
+struct TiDBDataSourceManager {
+    void registerTiDBDataSource(const std::string& id, TiDBDataSource* source) {
+        std::lock_guard<std::mutex> lock(mu_);
+        data_sources_.insert({id, source});
+    }
+
+    TiDBDataSource* getTiDBDataSource(const std::string& id) {
+        std::lock_guard<std::mutex> lock(mu_);
+        auto iter = data_sources_.find(id);
+        if (iter == data_sources_.end()) {
+            return nullptr;
+        } else {
+            return iter->second;
+        }
+    }
+
+    std::unordered_map<std::string, TiDBDataSource*> data_sources_;
+    std::mutex mu_;
+};
 
 // TiDBDataSourceManager& GetTiDBDataSourceManager();
 
 class TiDBTableHandle : public ConnectorTableHandle {
     public:
-        explicit TiDBTableHandle(std::string connectorId, int64_t id)
+        explicit TiDBTableHandle(std::string connectorId, std::string id, std::shared_ptr<TiDBDataSourceManager> mgr)
             : ConnectorTableHandle(connectorId)
-            , tidbTableReaderId_(id) {};
+            , tidbTableReaderId_(id)
+            , tidbDataSourceManager(mgr) {};
         std::string toString() const override {
             return std::string("TiDBTableHandle test string");
         }
 
-        int64_t tidbTableReaderId_;
+        std::string tidbTableReaderId_;
+        std::shared_ptr<TiDBDataSourceManager> tidbDataSourceManager;
 };
 
 class TiDBColumnHandle : public ColumnHandle {
@@ -61,8 +63,9 @@ class TiDBDataSource final : public DataSource {
             : DataSource()
             , queue_(std::make_unique<folly::MPMCQueue<RowVectorPtr>>(queue_size)) {
                 std::cout << "InVelox log TiDBDataSource create beg" << std::endl;
-                // auto tidbTableHandle = std::dynamic_pointer_cast<TiDBTableHandle>(tableHandle);
-                // GetTiDBDataSourceManager().registerTiDBDataSource(tidbTableHandle->tidbTableReaderId_, shared_from_this());
+                auto tidbTableHandle = std::dynamic_pointer_cast<TiDBTableHandle>(tableHandle);
+                // gjt todo: may be shared_from_this() is better?
+                tidbTableHandle->tidbDataSourceManager->registerTiDBDataSource(tidbTableHandle->tidbTableReaderId_, this);
                 std::cout << "InVelox log TiDBDataSource create done" << std::endl;
             }
 

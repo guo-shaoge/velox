@@ -1,6 +1,8 @@
 extern "C" {
 #include <velox/substrait/tidb_query_adapter_wrapper.h>
 }
+
+#include <velox/substrait/TiDBQueryAdapter.h>
 #include <velox/substrait/SubstraitToVeloxPlan.h>
 #include <velox/exec/tests/utils/Cursor.h>
 #include <velox/connectors/tidb/TiDBConnector.h>
@@ -8,29 +10,29 @@ extern "C" {
 #include <iostream>
 
 namespace facebook::velox {
-struct TiDBQueryCtx {
-    std::shared_ptr<core::QueryCtx> veloxQueryCtx;
-    std::shared_ptr<exec::test::TaskCursor> veloxTaskCursor;
-    std::shared_ptr<const core::PlanNode> veloxPlanNode;
-};
 
 TiDBQueryCtx* makeTiDBQueryCtx() {
     // register things.
     static bool regTiDBConnectorFactory = connector::registerConnectorFactory((std::make_shared<connector::tidb::TiDBConnectorFactory>()));
-    static auto& setupTiDBDataSourceManager = connector::GetTiDBDataSourceManager();
     auto tidbConnector = connector::getConnectorFactory(
             connector::tidb::TiDBConnectorFactory::kTiDBConnectorName)
         ->newConnector(connector::tidb::TiDBConnectorFactory::kTiDBConnectorName, nullptr, nullptr);
     connector::registerConnector(tidbConnector);
 
+    // make queryCtx.
     std::shared_ptr<Config> config = std::make_shared<core::MemConfig>();
     std::shared_ptr<folly::Executor> executor =
         std::make_shared<folly::CPUThreadPoolExecutor>(
                 std::thread::hardware_concurrency());
     auto queryCtx = std::make_shared<core::QueryCtx>(std::move(executor), std::move(config));
 
+    // make TiDBDataSourceManager.
+    // gjt todo: make const
+    auto mgr = std::make_shared<connector::tidb::TiDBDataSourceManager>();
+
     TiDBQueryCtx* tidbQueryCtx = new TiDBQueryCtx();
     tidbQueryCtx->veloxQueryCtx = queryCtx;
+    tidbQueryCtx->tidbDataSourceManager = mgr;
     return tidbQueryCtx;
 }
 
@@ -40,6 +42,7 @@ std::shared_ptr<exec::test::TaskCursor> makeVeloxTaskCursor(TiDBQueryCtx* tidbQu
     std::cout << "InVelox log substraitPlan.DebugString(): " << substraitPlan.DebugString() << std::endl;
 
     substrait::SubstraitVeloxPlanConverter planConverter;
+    planConverter.setTiDBDataSourceManager(tidbQueryCtx->tidbDataSourceManager);
     auto planNode = planConverter.toVeloxPlan(substraitPlan, tidbQueryCtx->veloxQueryCtx->pool());
 
     facebook::velox::exec::test::CursorParameters param;
