@@ -78,6 +78,45 @@ class TiDBChunkDecoder {
   }
 };
 
+class TiDBColumnEncoder {
+ private:
+  static void setNull(int i, int64_t* nullBitmap) {
+    nullBitmap[i>>3] &= ~(1 << uint(i&7));
+  }
+
+ public:
+  static TiDBColumn baseVectorToColumn(const VectorPtr& vec){
+    TiDBColumn col{};
+    col.length = vec->size();
+    col.nullBitmap = (int64_t *)malloc(sizeof(int64_t)*(col.length+7)/8);
+    col.data = (int64_t *)malloc(sizeof(int64_t)*col.length);
+    memset(col.nullBitmap, -1, sizeof(int64_t)*(col.length+7)/8);
+    memset(col.data, 0, sizeof(int64_t)*col.length);
+
+    auto flatVec = std::dynamic_pointer_cast<FlatVector<int64_t>>(vec);
+    for (int i = 0;i < col.length;i++) {
+      if (vec->isNullAt(i)) {
+        setNull(i, col.nullBitmap);
+      } else {
+        col.data[i] = flatVec->valueAt(i);
+      }
+    }
+    return col;
+  }
+};
+
+class TiDBChunkEncoder{
+  TiDBColumnEncoder columnEncoder;
+  TiDBChunk RowVectorToChunk(const RowVectorPtr& row) {
+    TiDBChunk res{};
+    res.size = (int64_t)row->childrenSize();
+    res.columns = (TiDBColumn*)malloc(sizeof(TiDBColumn)*res.size);
+    for (int i = 0;i < res.size;i++) {
+      res.columns[i] = columnEncoder.baseVectorToColumn(row->childAt(i));
+    }
+    return res;
+  }
+};
 
 
 #endif // VELOX_TIDBCHUNKDECODER_H
