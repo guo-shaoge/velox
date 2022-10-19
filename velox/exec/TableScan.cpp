@@ -44,6 +44,7 @@ RowVectorPtr TableScan::getOutput() {
   for (;;) {
     if (needNewSplit_) {
       exec::Split split;
+      std::cout << "InVelox log TableScan trying to get new split" << std::endl;
       blockingReason_ = driverCtx_->task->getSplitOrFuture(
           driverCtx_->splitGroupId, planNodeId(), split, blockingFuture_);
       if (blockingReason_ != BlockingReason::kNotBlocked) {
@@ -84,6 +85,8 @@ RowVectorPtr TableScan::getOutput() {
             tableHandle_,
             columnHandles_,
             connectorQueryCtx_.get());
+        // TODO:
+        connector::GetTiDBDataSourceManager().registerTiDBDataSource(0, dataSource_);
         for (const auto& entry : pendingDynamicFilters_) {
           dataSource_->addDynamicFilter(entry.first, entry.second);
         }
@@ -106,6 +109,7 @@ RowVectorPtr TableScan::getOutput() {
          },
          &debugString_});
 
+    std::cout << "InVelox log TableScan dataSource->next" << std::endl;
     auto dataOptional = dataSource_->next(readBatchSize_, blockingFuture_);
     if (!dataOptional.has_value()) {
       blockingReason_ = BlockingReason::kWaitForConnector;

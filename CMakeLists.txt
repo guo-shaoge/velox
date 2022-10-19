@@ -190,7 +190,7 @@ if("${MAX_LINK_JOBS}")
 endif()
 
 if("${TREAT_WARNINGS_AS_ERRORS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 if("${ENABLE_ALL_WARNINGS}")

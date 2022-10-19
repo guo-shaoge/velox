@@ -15,6 +15,7 @@
  */
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/Operator.h"
+#include <iostream>
 
 namespace facebook::velox::exec::test {
 
@@ -108,8 +109,10 @@ std::atomic<int32_t> TaskCursor::serial_;
 TaskCursor::TaskCursor(const CursorParameters& params)
     : maxDrivers_{params.maxDrivers},
       numConcurrentSplitGroups_{params.numConcurrentSplitGroups},
-      numSplitGroups_{params.numSplitGroups} {
+      numSplitGroups_{params.numSplitGroups},
+      params_(params) {
   std::shared_ptr<core::QueryCtx> queryCtx;
+  std::cout << "InVelox log start to build TaskCursor" << std::endl;
   if (params.queryCtx) {
     queryCtx = params.queryCtx;
   } else {
@@ -140,17 +143,21 @@ TaskCursor::TaskCursor(const CursorParameters& params)
         copy->copy(vector.get(), 0, 0, vector->size());
         return queue->enqueue(std::move(copy), future);
       });
+  std::cout << "InVelox log done to build TaskCursor" << std::endl;
 }
 
 void TaskCursor::start() {
   if (!started_) {
     started_ = true;
+    std::cout << "InVelox log TaskCursor::start() begin" << std::endl;
     exec::Task::start(task_, maxDrivers_, numConcurrentSplitGroups_);
     queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
+    std::cout << "InVelox log TaskCursor::start() done" << std::endl;
   }
 }
 
 bool TaskCursor::moveNext() {
+  std::cout << "InVelox log TaskCursor::moveNext() begin" << std::endl;
   start();
   current_ = queue_->dequeue();
   if (task_->error()) {

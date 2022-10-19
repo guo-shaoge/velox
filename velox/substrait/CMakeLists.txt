@@ -51,11 +51,47 @@ set(SRCS
     VeloxToSubstraitPlan.cpp
     VeloxToSubstraitType.cpp)
 
-add_library(velox_substrait_plan_converter ${SRCS})
+add_library(velox_substrait_plan_converter ${SRCS} tidb_query_adapter_wrapper.h TiDBQueryAdapter.cpp)
 target_include_directories(velox_substrait_plan_converter
                            PUBLIC ${PROTO_OUTPUT_DIR})
 target_link_libraries(velox_substrait_plan_converter velox_connector
                       velox_dwio_dwrf_common)
+
+add_library(tidb_velox)
+target_link_libraries(tidb_velox PUBLIC
+  velox_substrait_plan_converter
+  velox_functions_test_lib
+  velox_exec
+  velox_dwio_common
+  velox_aggregates
+  velox_aggregates_test_lib
+  velox_functions_lib
+  velox_functions_prestosql
+  velox_hive_connector
+  velox_type
+  velox_serialization
+  velox_exec_test_lib
+  velox_functions_json
+  velox_vector
+  velox_memory
+  velox_dwio_common_exception
+  tidb_velox_connector
+  velox_substrait_plan_converter
+  velox_exception
+  ${Boost_ATOMIC_LIBRARIES}
+  ${Boost_CONTEXT_LIBRARIES}
+  ${Boost_DATE_TIME_LIBRARIES}
+  ${Boost_FILESYSTEM_LIBRARIES}
+  ${Boost_PROGRAM_OPTIONS_LIBRARIES}
+  ${Boost_REGEX_LIBRARIES}
+  ${Boost_THREAD_LIBRARIES}
+  ${Boost_SYSTEM_LIBRARIES}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${DOUBLE_CONVERSION}
+  ${gflags_LIBRARIES}
+  glog::glog
+  ${FMT}
+  ${FILESYSTEM})
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

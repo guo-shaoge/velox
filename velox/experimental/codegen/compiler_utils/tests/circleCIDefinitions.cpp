@@ -28,7 +28,8 @@ compiler_utils::CompilerOptions testCompilerOptions() {
   return compiler_utils::CompilerOptions()
       .withCompilerPath(CLANG_PATH)
       .withOptimizationLevel("-O3")
-      .withLinkerPath(LD_PATH)
+      // TODO: error: no member named 'withLinkerPath' in 'facebook::velox::codegen::compiler_utils::CompilerOptions'; did you mean 'withLinker'?
+      // .withLinkerPath(LD_PATH)
       .withTempDirectory("/tmp")
       .withExtraCompileOptions({"-std=c++17", "-fPIC", "-g"})
       .withFormatterPath("/usr/local/bin/clang-format");
@@ -37,5 +38,5 @@ compiler_utils::CompilerOptions testCompilerOptions() {
 };
 } // namespace codegen
 } // namespace velox
-}
+
 ; // namespace facebook

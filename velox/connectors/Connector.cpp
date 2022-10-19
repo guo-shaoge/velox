@@ -104,4 +104,9 @@ std::shared_ptr<cache::ScanTracker> Connector::getTracker(
   });
 }
 
+TiDBDataSourceManager& GetTiDBDataSourceManager() {
+    static TiDBDataSourceManager gTiDBDataSourceManager;
+    return gTiDBDataSourceManager;
+}
+
 } // namespace facebook::velox::connector

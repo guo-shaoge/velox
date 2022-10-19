@@ -27,30 +27,38 @@ NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 
 # Install all velox and folly dependencies.
-sudo --preserve-env apt install -y \
-  g++ \
-  cmake \
-  ccache \
-  ninja-build \
-  checkinstall \
-  git \
-  libssl-dev \
-  libboost-all-dev \
-  libdouble-conversion-dev \
-  libgoogle-glog-dev \
-  libbz2-dev \
-  libgflags-dev \
-  libgtest-dev \
-  libgmock-dev \
-  libevent-dev \
-  liblz4-dev \
-  libzstd-dev \
-  libre2-dev \
-  libsnappy-dev \
-  liblzo2-dev \
-  bison \
-  flex \
-  tzdata
+# sudo --preserve-env pacman -S -y \
+#   ccache \
+#   libssl-dev \
+#   libboost-all-dev \
+#   libdouble-conversion-dev \
+#   libgoogle-glog-dev \
+#   libbz2-dev \
+#   libgflags-dev \
+#   libgtest-dev \
+#   libgmock-dev \
+#   libevent-dev \
+#   liblz4-dev \
+#   libzstd-dev \
+#   libre2-dev \
+#   libsnappy-dev \
+#   liblzo2-dev \
+#   bison \
+#   flex \
+#   tzdata \
+# checkinstall \
+# g++ \
+# cmake \
+# ninja-build \
+# git \
+
+# Only for arch linux
+# sudo pacman -Sy extra/boost
+# sudo pacman -Sy community/google-glog
+# sudo pacman -Sy extra/re2
+# sudo pacman -S core/lzo
+# sudo pacman -S snappy
+# sudo pacman -S community/range-v3
 
 function run_and_time {
   time "$@"

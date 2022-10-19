@@ -42,6 +42,15 @@ class EncryptionProperties {
       const EncryptionProperties&);
 };
 
+class gjtTest : public EncryptionProperties {
+    public:
+  size_t hash() const override {
+      return 0;
+  }
+    protected:
+  bool equals(const EncryptionProperties& other) const override {return false;}
+};
+
 bool operator==(const EncryptionProperties& a, const EncryptionProperties& b);
 
 struct EncryptionPropertiesHash {

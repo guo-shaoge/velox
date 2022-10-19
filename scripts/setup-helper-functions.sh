@@ -139,6 +139,9 @@ function cmake_install {
     "${INSTALL_PREFIX+-DCMAKE_INSTALL_PREFIX=}${INSTALL_PREFIX-}" \
     -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS" \
     -DBUILD_TESTING=OFF \
+	-DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+    -DCMAKE_C_COMPILER=/usr/bin/clang \
+    -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
     "$@"
   ninja -C "${BINARY_DIR}" install
 }

@@ -39,6 +39,10 @@
 #include "velox/vector/VectorEncoding.h"
 #include "velox/vector/VectorUtil.h"
 
+#define BOOST_STACKTRACE_USE_ADDR2LINE
+#include <boost/stacktrace.hpp>
+#include <iostream>
+
 namespace facebook {
 namespace velox {
 
@@ -117,6 +121,8 @@ class BaseVector {
   template <typename T>
   const T* asUnchecked() const {
     static_assert(std::is_base_of_v<BaseVector, T>);
+    // gjt todo: del this, just for debug
+    // std::cout << boost::stacktrace::stacktrace() << std::endl;
     DCHECK(dynamic_cast<const T*>(this) != nullptr);
     return static_cast<const T*>(this);
   }

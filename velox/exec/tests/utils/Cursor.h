@@ -126,6 +126,9 @@ class TaskCursor {
     return task_;
   }
 
+  const CursorParameters& params() const {
+      return params_;
+  }
  private:
   const int32_t maxDrivers_;
   const int32_t numConcurrentSplitGroups_;
@@ -136,6 +139,7 @@ class TaskCursor {
   RowVectorPtr current_;
   static std::atomic<int32_t> serial_;
   bool atEnd_{false};
+  CursorParameters params_;
 };
 
 class RowCursor {

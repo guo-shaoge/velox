@@ -337,6 +337,7 @@ void Task::start(
   }
 #endif
 
+  std::cout << "InVelox log before construct LocalPlanner::plan()" << std::endl;
   // Here we create driver factories.
   LocalPlanner::plan(
       self->planFragment_,
@@ -369,6 +370,7 @@ void Task::start(
   // cancellation while Drivers are being made, so the array should
   // have final size from the start.
 
+  std::cout << "InVelox log Task bufferManager start" << std::endl;
   auto bufferManager = self->bufferManager_.lock();
   VELOX_CHECK_NOT_NULL(
       bufferManager,
@@ -411,6 +413,7 @@ void Task::start(
   // arriving, as we don't know what split groups we are going to get.
   // Here we create Drivers only for ungrouped (normal) execution.
   if (self->isUngroupedExecution()) {
+    std::cout << "InVelox log Task ungrouped exec start" << std::endl;
     // Create the drivers we are going to run for this task.
     std::vector<std::shared_ptr<Driver>> drivers;
     drivers.reserve(self->numDriversPerSplitGroup_);
@@ -435,6 +438,7 @@ void Task::start(
       }
     }
   } else {
+    std::cout << "InVelox log Task group exec start" << std::endl;
     // Preallocate a bunch of slots for max concurrent drivers during grouped
     // execution.
     self->drivers_.resize(
@@ -444,6 +448,7 @@ void Task::start(
     // start running drivers for them.
     self->ensureSplitGroupsAreBeingProcessedLocked(self);
   }
+  std::cout << "InVelox log Task start done" << std::endl;
 }
 
 // static

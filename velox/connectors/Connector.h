@@ -319,4 +319,25 @@ std::shared_ptr<Connector> getConnector(const std::string& connectorId);
   static bool FB_ANONYMOUS_VARIABLE(g_ConnectorFactory) =                 \
       facebook::velox::connector::registerConnectorFactory((theFactory)); \
   }
+
+struct TiDBDataSourceManager {
+    void registerTiDBDataSource(int64_t id, std::shared_ptr<DataSource> source) {
+        std::lock_guard<std::mutex> lock(mu_);
+        data_sources_.insert({id, source});
+    }
+
+    std::shared_ptr<DataSource> getTiDBDataSource(int64_t id) {
+        std::lock_guard<std::mutex> lock(mu_);
+        auto iter = data_sources_.find(id);
+        if (iter == data_sources_.end()) {
+            return nullptr;
+        } else {
+            return iter->second;
+        }
+    }
+
+    std::unordered_map<int64_t, std::shared_ptr<DataSource>> data_sources_;
+    std::mutex mu_;
+};
+TiDBDataSourceManager& GetTiDBDataSourceManager();
 } // namespace facebook::velox::connector

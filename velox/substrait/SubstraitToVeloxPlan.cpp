@@ -19,6 +19,7 @@
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/connectors/tidb/TiDBConnector.h"
 
 namespace facebook::velox::substrait {
 namespace {
@@ -283,35 +284,14 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     }
   }
 
-  // Do not hard-code connector ID and allow for connectors other than Hive.
-  static const std::string kHiveConnectorId = "test-hive";
-
-  // Velox requires Filter Pushdown must being enabled.
-  bool filterPushdownEnabled = true;
-  std::shared_ptr<connector::hive::HiveTableHandle> tableHandle;
-  if (!readRel.has_filter()) {
-    tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
-        kHiveConnectorId,
-        "hive_table",
-        filterPushdownEnabled,
-        connector::hive::SubfieldFilters{},
-        nullptr);
-  } else {
-    connector::hive::SubfieldFilters filters =
-        toVeloxFilter(colNameList, veloxTypeList, readRel.filter());
-    tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
-        kHiveConnectorId,
-        "hive_table",
-        filterPushdownEnabled,
-        std::move(filters),
-        nullptr);
+  if (readRel.has_named_table()) {
+      std::cout << "InVelox log build TableScan readRel has_named_table" << std::endl;
   }
-
-  // Get assignments and out names.
+  auto tableHandle = std::make_shared<connector::tidb::TiDBTableHandle>(connector::tidb::TiDBConnectorFactory::kTiDBConnectorName, /* TODO setup id */0);
+  // just use default, TiDBDataSource doesn't use it for now.
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>> assignments;
   std::vector<std::string> outNames;
   outNames.reserve(colNameList.size());
-  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      assignments;
   for (int idx = 0; idx < colNameList.size(); idx++) {
     auto outName = substraitParser_->makeNodeName(planNodeId_, idx);
     assignments[outName] = std::make_shared<connector::hive::HiveColumnHandle>(
@@ -319,17 +299,60 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
         connector::hive::HiveColumnHandle::ColumnType::kRegular,
         veloxTypeList[idx]);
     outNames.emplace_back(outName);
+    std::cout << "InVelox log outName: " << outName << std::endl;
   }
   auto outputType = ROW(std::move(outNames), std::move(veloxTypeList));
 
-  if (readRel.has_virtual_table()) {
-    return toVeloxPlan(readRel, pool, outputType);
+  auto tableScanNode = std::make_shared<core::TableScanNode>(nextPlanNodeId(), outputType, tableHandle, assignments);
+  return tableScanNode;
 
-  } else {
-    auto tableScanNode = std::make_shared<core::TableScanNode>(
-        nextPlanNodeId(), outputType, tableHandle, assignments);
-    return tableScanNode;
-  }
+  // // Do not hard-code connector ID and allow for connectors other than Hive.
+  // static const std::string kHiveConnectorId = "test-hive";
+
+  // // Velox requires Filter Pushdown must being enabled.
+  // bool filterPushdownEnabled = true;
+  // std::shared_ptr<connector::hive::HiveTableHandle> tableHandle;
+  // if (!readRel.has_filter()) {
+  //   tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
+  //       kHiveConnectorId,
+  //       "hive_table",
+  //       filterPushdownEnabled,
+  //       connector::hive::SubfieldFilters{},
+  //       nullptr);
+  // } else {
+  //   connector::hive::SubfieldFilters filters =
+  //       toVeloxFilter(colNameList, veloxTypeList, readRel.filter());
+  //   tableHandle = std::make_shared<connector::hive::HiveTableHandle>(
+  //       kHiveConnectorId,
+  //       "hive_table",
+  //       filterPushdownEnabled,
+  //       std::move(filters),
+  //       nullptr);
+  // }
+
+  // // Get assignments and out names.
+  // std::vector<std::string> outNames;
+  // outNames.reserve(colNameList.size());
+  // std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+  //     assignments;
+  // for (int idx = 0; idx < colNameList.size(); idx++) {
+  //   auto outName = substraitParser_->makeNodeName(planNodeId_, idx);
+  //   assignments[outName] = std::make_shared<connector::hive::HiveColumnHandle>(
+  //       colNameList[idx],
+  //       connector::hive::HiveColumnHandle::ColumnType::kRegular,
+  //       veloxTypeList[idx]);
+  //   outNames.emplace_back(outName);
+  // }
+  // auto outputType = ROW(std::move(outNames), std::move(veloxTypeList));
+
+  // if (readRel.has_virtual_table()) {
+  //   return toVeloxPlan(readRel, pool, outputType);
+
+  // } else {
+  //   auto tableScanNode = std::make_shared<core::TableScanNode>(
+  //       nextPlanNodeId(), outputType, tableHandle, assignments);
+  //   return tableScanNode;
+  // }
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(

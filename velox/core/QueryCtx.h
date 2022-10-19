@@ -23,6 +23,7 @@
 #include "velox/core/QueryConfig.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/VectorPool.h"
+#include <iostream>
 
 namespace facebook::velox::core {
 

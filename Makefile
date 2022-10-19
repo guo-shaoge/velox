@@ -18,7 +18,7 @@ BUILD_DIR=release
 BUILD_TYPE=Release
 BENCHMARKS_BASIC_DIR=$(BUILD_BASE_DIR)/$(BUILD_DIR)/velox/benchmarks/basic/
 BENCHMARKS_DUMP_DIR=dumps
-TREAT_WARNINGS_AS_ERRORS ?= 1
+TREAT_WARNINGS_AS_ERRORS ?= 0
 ENABLE_WALL ?= 1
 
 # Option to make a minimal build. By default set to "OFF"; set to
@@ -75,7 +75,9 @@ cmake:					#: Use CMake to create a Makefile build system
 		$(GENERATOR) \
 		$(USE_CCACHE) \
 		$(FORCE_COLOR) \
-		${EXTRA_CMAKE_FLAGS}
+		${EXTRA_CMAKE_FLAGS} \
+		-DCMAKE_INSTALL_PREFIX="$(BUILD_BASE_DIR)/install" \
+		-DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_EXE_LINKER_FLAGS="${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld" -DVELOX_ENABLE_SUBSTRAIT=true
 
 build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j ${NUM_THREADS}

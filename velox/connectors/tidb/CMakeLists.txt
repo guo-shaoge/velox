@@ -11,16 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_connector Connector.cpp)
 
-target_link_libraries(velox_connector velox_config velox_vector)
+add_library(tidb_velox_connector OBJECT TiDBConnector.cpp tidb_velox_wrapper.cpp)
 
-if(${VELOX_ENABLE_HIVE_CONNECTOR})
-  add_subdirectory(hive)
-endif()
+target_link_libraries(tidb_velox_connector velox_connector velox_vector)
 
-if(${VELOX_ENABLE_TPCH_CONNECTOR})
-  add_subdirectory(tpch)
-endif()
-
-add_subdirectory(tidb)
+# if(${VELOX_BUILD_TESTING})
+#   add_subdirectory(tests)
+# endif()

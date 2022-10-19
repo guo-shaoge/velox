@@ -25,6 +25,8 @@
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/type/Type.h"
 
+#include <iostream>
+
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 using namespace facebook::velox::connector::hive;
@@ -273,6 +275,8 @@ TEST_F(Substrait2VeloxPlanConversionTest, q6) {
   // Read q6_first_stage.json and resume the Substrait plan.
   ::substrait::Plan substraitPlan;
   JsonToProtoConverter::readFromFile(planPath, substraitPlan);
+  auto debugStr = substraitPlan.DebugString();
+  std::cout << "gjt debug: " + debugStr << std::endl;
 
   // Convert to Velox PlanNode.
   facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter;
