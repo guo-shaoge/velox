@@ -51,7 +51,7 @@ set(SRCS
     VeloxToSubstraitExpr.cpp
     VeloxToSubstraitPlan.cpp
     VeloxToSubstraitType.cpp
-    VeloxSubstraitSignature.cpp TiDBChunkDecoder.cpp TiDBChunkDecoder.h)
+    VeloxSubstraitSignature.cpp TiDBChunkDecoder.cpp TiDBChunkDecoder.h tidb_velox_chunk_wrapper.cpp tidb_velox_chunk_wrapper.h)
 
 add_library(velox_substrait_plan_converter ${SRCS})
 target_include_directories(velox_substrait_plan_converter

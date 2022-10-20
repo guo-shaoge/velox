@@ -20,10 +20,10 @@ using namespace facebook::velox;
 using namespace facebook::velox::test;
 
 struct TiDBColumn {
-  int64_t *data;
+  void *data;
+  void *nullBitmap;
+  void *offsets;
   int64_t length;
-  int64_t *nullBitmap;
-  // int64_t offsets;
 };
 
 struct TiDBChunk {
@@ -36,7 +36,7 @@ class TiDBColumnDecoder {
       memory::getDefaultScopedMemoryPool()};
   ::test::VectorMaker vectorMaker_{pool_.get()};
 
-  static inline bool isNull(int i, const int64_t *nullBitmap) {
+  static inline bool isNull(int i, const uint8_t *nullBitmap) {
     auto nullByte = nullBitmap[i/8];
     return (nullByte&(1<<(i&7)))==0;
   }
@@ -44,11 +44,13 @@ class TiDBColumnDecoder {
   static std::vector<std::optional<int64_t>> decodeInts(TiDBColumn column) {
     std::vector<std::optional<int64_t>> result;
     result.reserve(column.length);
+    auto nullBitMap = (uint8_t*)(column.nullBitmap);
+    auto data = (int64_t*)(column.data);
     for (int i = 0;i < column.length;i++) {
-      if (isNull(i, column.nullBitmap)) {
+      if (isNull(i, nullBitMap)) {
         result.emplace_back(std::nullopt);
       } else {
-        result.emplace_back(column.data[i]);
+        result.emplace_back(data[i]);
       }
     }
     return std::move(result);
@@ -80,7 +82,7 @@ class TiDBChunkDecoder {
 
 class TiDBColumnEncoder {
  private:
-  static void setNull(int i, int64_t* nullBitmap) {
+  static void setNull(int i, uint8_t* nullBitmap) {
     nullBitmap[i>>3] &= ~(1 << uint(i&7));
   }
 
@@ -88,18 +90,21 @@ class TiDBColumnEncoder {
   static TiDBColumn baseVectorToColumn(const VectorPtr& vec){
     TiDBColumn col{};
     col.length = vec->size();
-    col.nullBitmap = (int64_t *)malloc(sizeof(int64_t)*(col.length+7)/8);
-    col.data = (int64_t *)malloc(sizeof(int64_t)*col.length);
+    col.nullBitmap = malloc(sizeof(int64_t)*(col.length+7)/8);
+    col.data = malloc(sizeof(int64_t)*col.length);
     memset(col.nullBitmap, -1, sizeof(int64_t)*(col.length+7)/8);
     memset(col.data, 0, sizeof(int64_t)*col.length);
 
     auto flatVec = std::dynamic_pointer_cast<FlatVector<int64_t>>(vec);
     for (int i = 0;i < col.length;i++) {
       if (vec->isNullAt(i)) {
-        setNull(i, col.nullBitmap);
+        setNull(i, (uint8_t *)col.nullBitmap);
       } else {
-        col.data[i] = flatVec->valueAt(i);
+        ((uint64_t *)col.data)[i] = flatVec->valueAt(i);
       }
+    }
+    for (int i = col.length;i %8 !=0 ;i++) {
+      setNull(i, (uint8_t *)col.nullBitmap);
     }
     return col;
   }
