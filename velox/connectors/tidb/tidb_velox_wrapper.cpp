@@ -36,6 +36,109 @@ CGoTiDBDataSource get_tidb_data_source(CGoTiDBQueryCtx ctx, const char* dsID, si
     return (CGoTiDBDataSource)(dataSource);
 }
 
+struct TiDBColumn {
+    void* data;
+    void* nullBitmap;
+    void* offsets;
+    size_t length;
+};
+
+struct TiDBChunk {
+    TiDBColumn* columns;
+    size_t col_len;
+};
+
+bool isNull(int i, const uint8_t *nullBitmap) {
+    auto nullByte = nullBitmap[i/8];
+    return (nullByte&(1<<(i&7)))==0;
+}
+
+template<typename T>
+std::vector<std::optional<T>>* decodeFixedTypeNullable(const TiDBColumn& column) {
+    // gjt todo: delete this!
+    auto* result = new std::vector<std::optional<T>>();
+    result->reserve(column.length);
+    auto nullBitMap = (uint8_t*)(column.nullBitmap);
+    auto data = (T*)(column.data);
+    for (int i = 0;i < column.length;i++) {
+        if (isNull(i, nullBitMap)) {
+            result->emplace_back(std::nullopt);
+        } else {
+            result->emplace_back(data[i]);
+        }
+    }
+    return result;
+}
+
+CGoStdVector tidb_chunk_column_to_velox_vector(
+        CGoTiDBQueryCtx ctx, void* data, void* nullBitmap,
+        void* offsets, size_t length, int type) {
+    TiDBColumn tidbColumn = {.data = data, .nullBitmap = nullBitmap, .offsets = offsets, .length = length};
+    if (type == kTiDBColumnTypeInt32) {
+        return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<int32_t>(tidbColumn));
+    } else if (type == kTiDBColumnTypeInt64) {
+        return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<int64_t>(tidbColumn));
+    } else if (type == kTiDBColumnTypeFloat) {
+        return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<float>(tidbColumn));
+    } else if (type == kTiDBColumnTypeDouble) {
+        return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<double>(tidbColumn));
+    } else {
+        std::cout << "InVelox log FATAL ERROR!!! not supported TiDBColumn Type" << std::endl;
+        exit(123);
+    }
+}
+
+template<typename T>
+void convertStdVectorToVeloxVector(
+        std::shared_ptr<test::VectorMaker> vectorMaker,
+        const std::vector<std::optional<T>>& inVec,
+        std::vector<VeloxNS::VectorPtr>& out) {
+    out.push_back(vectorMaker->flatVectorNullable(inVec, CppToType<T>::create()));
+}
+
+// gjt todo: only support nullable.
+void enqueue_std_vectors(
+        CGoTiDBQueryCtx ctx, const CGoStdVector* vectors,
+        const TiDBColumnType* types, size_t num_vec,
+        const char* dsID, size_t dsIDLen) {
+    const TiDBColumnType* tidbTypes = reinterpret_cast<const TiDBColumnType*>(types);
+
+    auto* tidbQueryCtx = reinterpret_cast<facebook::velox::TiDBQueryCtx*>(ctx);
+    auto vectorMaker = std::make_shared<test::VectorMaker>(tidbQueryCtx->veloxQueryCtx->pool());
+
+    std::vector<VeloxNS::VectorPtr> results;
+    results.reserve(num_vec);
+    for (size_t i = 0; i < num_vec; ++i) {
+        if (tidbTypes[i] == kTiDBColumnTypeInt32) {
+            auto* stdVector = reinterpret_cast<const std::vector<std::optional<int32_t>>*>(vectors[i]);
+            convertStdVectorToVeloxVector<int32_t>(vectorMaker, *stdVector, results);
+        } else if (tidbTypes[i] == kTiDBColumnTypeInt64) {
+            auto* stdVector = reinterpret_cast<const std::vector<std::optional<int64_t>>*>(vectors[i]);
+            convertStdVectorToVeloxVector<int64_t>(vectorMaker, *stdVector, results);
+        } else if (tidbTypes[i] == kTiDBColumnTypeFloat) {
+            auto* stdVector = reinterpret_cast<const std::vector<std::optional<float>>*>(vectors[i]);
+            convertStdVectorToVeloxVector<float>(vectorMaker, *stdVector, results);
+        } else if (tidbTypes[i] == kTiDBColumnTypeDouble) {
+            auto* stdVector = reinterpret_cast<const std::vector<std::optional<double>>*>(vectors[i]);
+            convertStdVectorToVeloxVector<double>(vectorMaker, *stdVector, results);
+        } else {
+            // gjt todo: return error instead of exit(123);
+            std::cout << "InVelox log FATAL ERROR!!! not supported TiDBColumn Type" << std::endl;
+            exit(123);
+        }
+    }
+
+    RowVectorPtr rowVector = vectorMaker->rowVector(results);
+    const auto& dsIDStr = std::string(dsID, dsIDLen);
+    connector::tidb::TiDBDataSource* dataSource = tidbQueryCtx->tidbDataSourceManager->getTiDBDataSource(dsIDStr);
+    if (dataSource == nullptr) {
+        std::cout << dsIDStr << std::endl;
+        exit(123);
+    }
+    dataSource->enqueue(rowVector);
+}
+
+/////
 void enqueue_tidb_data_source(CGoTiDBQueryCtx ctx, const char* dsID, size_t len, CGoRowVector data) {
     // TODO: use real data
     // VeloxNS::RowVector* tmp = reinterpret_cast<VeloxNS::RowVector*>(data);
@@ -53,8 +156,8 @@ void enqueue_tidb_data_source(CGoTiDBQueryCtx ctx, const char* dsID, size_t len,
     if (dataSource == nullptr) {
         exit(123);
     }
-    std::vector<std::optional<long>> tmp_col{std::optional<long>{1}};
-    VectorPtr vec = vectorMaker->flatVectorNullable(tmp_col , VeloxNS::CppToType<long>::create());
+    std::vector<std::optional<int32_t>> tmp_col{std::optional<int32_t>{1}};
+    VectorPtr vec = vectorMaker->flatVectorNullable(tmp_col , VeloxNS::CppToType<int32_t>::create());
     auto rowVector = vectorMaker->rowVector(std::vector<VectorPtr>{vec});
     std::cout << "InVelox log enqueue_tidb_data_source done" + rowVector->toString(0) << std::endl;
     dataSource->enqueue(rowVector);
