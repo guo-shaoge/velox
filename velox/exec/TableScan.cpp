@@ -37,7 +37,9 @@ TableScan::TableScan(
 }
 
 RowVectorPtr TableScan::getOutput() {
+  std::cout << "InVelox log TableScan start" << std::endl;
   if (noMoreSplits_) {
+    std::cout << "InVelox log TableScan noMoreSplits_" << std::endl;
     return nullptr;
   }
 
@@ -48,10 +50,12 @@ RowVectorPtr TableScan::getOutput() {
       blockingReason_ = driverCtx_->task->getSplitOrFuture(
           driverCtx_->splitGroupId, planNodeId(), split, blockingFuture_);
       if (blockingReason_ != BlockingReason::kNotBlocked) {
+        std::cout << "InVelox log TableScanreturn null 1" << std::endl;
         return nullptr;
       }
 
       if (!split.hasConnectorSplit()) {
+        std::cout << "InVelox log TableScanreturn null 2" << std::endl;
         noMoreSplits_ = true;
 
         if (dataSource_) {

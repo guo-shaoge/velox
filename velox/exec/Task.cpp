@@ -815,6 +815,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
     } else if (isUngroupedExecution()) {
       // During ungrouped execution, in the unlikely case there are no split
       // stores (this means there were no splits at all), we create one.
+        std::cout << "InVelox log Task::noMoreSplits" << std::endl;
       splitsState.groupSplitsStores.emplace(0, SplitsStore{{}, true, {}});
     }
 
@@ -903,7 +904,9 @@ BlockingReason Task::getSplitOrFutureLocked(
     SplitsStore& splitsStore,
     exec::Split& split,
     ContinueFuture& future) {
+    std::cout << "InVelox log getSplitOrFutureLocked beg" << std::endl;
   if (splitsStore.splits.empty()) {
+    std::cout << "InVelox log getSplitOrFutureLocked splits empty" << splitsStore.noMoreSplits << std::endl;
     if (splitsStore.noMoreSplits) {
       return BlockingReason::kNotBlocked;
     }

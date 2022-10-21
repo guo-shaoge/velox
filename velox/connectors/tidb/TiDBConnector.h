@@ -79,11 +79,35 @@ class TiDBDataSource final : public DataSource {
             VELOX_NYI("Dynamic filters not supported by TiDBConnector.");
         }
 
+        void notifyNoInput() {
+            std::unique_lock<std::mutex> lock(mu_);
+            noInput_ = true;
+            cv_.notify_one();
+        }
+
+        void notifyGotInput() {
+            {
+                std::unique_lock<std::mutex> lock(mu_);
+                cv_.notify_one();
+            }
+        }
+
         // TODO: future
         std::optional<RowVectorPtr> next(uint64_t size, velox::ContinueFuture& future) override {
-            RowVectorPtr data;
             std::cout << "InVelox log TiDBDataSource::next() beg" << std::endl;
-            queue_->blockingRead(data);
+            RowVectorPtr data;
+            for (;;) {
+                std::unique_lock<std::mutex> lock(mu_);
+                if (queue_->readIfNotEmpty(data)) {
+                    std::cout << "InVelox log TiDBDataSource::next() got data" << std::endl;
+                    break;
+                }
+                if (noInput_) {
+                    std::cout << "InVelox log noinput_" << std::endl;
+                    return nullptr;
+                }
+                cv_.wait(lock, [&]() { return !(this->queue_->isEmpty()) || this->noInput_ == true; });
+            }
             std::cout << "InVelox log TiDBDataSource::next() done" << std::endl;
             return std::optional<RowVectorPtr>{data};
         }
@@ -103,12 +127,17 @@ class TiDBDataSource final : public DataSource {
 
         // Called by external TiDB code.
         void enqueue(RowVectorPtr data) {
+            std::unique_lock<std::mutex> lock(mu_);
             queue_->blockingWrite(data);
         }
     private:
         std::unique_ptr<folly::MPMCQueue<RowVectorPtr>> queue_;
         size_t completedRows_{0};
         size_t completedBytes_{0};
+        bool noInput_{false};
+        bool gotInput{false};
+        std::mutex mu_;
+        std::condition_variable cv_;
 };
 
 class TiDBConnector final : public Connector {

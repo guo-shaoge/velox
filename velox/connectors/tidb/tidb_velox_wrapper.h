@@ -25,6 +25,20 @@ void enqueue_std_vectors(
         CGoTiDBQueryCtx ctx, const CGoStdVector* vectors,
         const TiDBColumnType* types, size_t num_vec,
         const char* dsID, size_t dsIDLen);
+void no_more_input(CGoTiDBQueryCtx ctx, const char* dsID, size_t dsIDLen);
+
+// gjt todo: merge this header file with tidb_query_adapter_wrapper.h
+// struct TiDBColumn {
+//     void* data;
+//     void* nullBitmap;
+//     void* offsets;
+//     size_t length;
+// };
+// 
+// struct TiDBChunk {
+//     TiDBColumn* columns;
+//     size_t col_len;
+// };
 
 /////// gjt todo: delete following
 // Life cycle of RowVector should be taken over by Velox.

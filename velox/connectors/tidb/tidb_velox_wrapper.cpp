@@ -36,18 +36,6 @@ CGoTiDBDataSource get_tidb_data_source(CGoTiDBQueryCtx ctx, const char* dsID, si
     return (CGoTiDBDataSource)(dataSource);
 }
 
-struct TiDBColumn {
-    void* data;
-    void* nullBitmap;
-    void* offsets;
-    size_t length;
-};
-
-struct TiDBChunk {
-    TiDBColumn* columns;
-    size_t col_len;
-};
-
 bool isNull(int i, const uint8_t *nullBitmap) {
     auto nullByte = nullBitmap[i/8];
     return (nullByte&(1<<(i&7)))==0;
@@ -73,7 +61,11 @@ std::vector<std::optional<T>>* decodeFixedTypeNullable(const TiDBColumn& column)
 CGoStdVector tidb_chunk_column_to_velox_vector(
         CGoTiDBQueryCtx ctx, void* data, void* nullBitmap,
         void* offsets, size_t length, int type) {
-    TiDBColumn tidbColumn = {.data = data, .nullBitmap = nullBitmap, .offsets = offsets, .length = length};
+    TiDBColumn tidbColumn;
+    tidbColumn.data = data;
+    tidbColumn.nullBitmap = nullBitmap;
+    tidbColumn.offsets = offsets;
+    tidbColumn.length = length;
     if (type == kTiDBColumnTypeInt32) {
         return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<int32_t>(tidbColumn));
     } else if (type == kTiDBColumnTypeInt64) {
@@ -136,6 +128,23 @@ void enqueue_std_vectors(
         exit(123);
     }
     dataSource->enqueue(rowVector);
+    dataSource->notifyGotInput();
+}
+
+void no_more_input(CGoTiDBQueryCtx ctx, const char* dsID, size_t dsIDLen) {
+    auto* tidbQueryCtx = reinterpret_cast<facebook::velox::TiDBQueryCtx*>(ctx);
+    std::cout << "InVelox log no more input" << std::endl;
+    // auto* task = tidbQueryCtx->veloxTaskCursor->task().get();
+    // task->noMoreSplits(tidbQueryCtx->veloxPlanNode->id());
+    tidbQueryCtx->noMoreInput = true;
+
+    const auto& dsIDStr = std::string(dsID, dsIDLen);
+    connector::tidb::TiDBDataSource* dataSource = tidbQueryCtx->tidbDataSourceManager->getTiDBDataSource(dsIDStr);
+    if (dataSource == nullptr) {
+        std::cout << dsIDStr << std::endl;
+        exit(123);
+    }
+    dataSource->notifyNoInput();
 }
 
 /////

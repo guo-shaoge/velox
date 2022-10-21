@@ -16,13 +16,20 @@
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/Operator.h"
 #include <iostream>
+// #define BOOST_STACKTRACE_USE_ADDR2LINE
+// #include <boost/stacktrace.hpp>
+// #include <iostream>
 
 namespace facebook::velox::exec::test {
 
 exec::BlockingReason TaskQueue::enqueue(
     RowVectorPtr vector,
     velox::ContinueFuture* future) {
+    // gjt todo: del this, just for debug
+    // std::cout << boost::stacktrace::stacktrace() << std::endl;
+    std::cout << "InVelox log enqueue called begin" << std::endl;
   if (!vector) {
+    std::cout << "InVelox log enqueue called no vector" << std::endl;
     std::lock_guard<std::mutex> l(mutex_);
     ++producersFinished_;
     if (consumerBlocked_) {
@@ -61,7 +68,9 @@ RowVectorPtr TaskQueue::dequeue() {
     std::vector<ContinuePromise> mayContinue;
     {
       std::lock_guard<std::mutex> l(mutex_);
+      std::cout << "InVelox log TaskQueue::dequeue begin" << std::endl;
       if (!queue_.empty()) {
+        std::cout << "InVelox log TaskQueue::dequeue queue_ not empty" << std::endl;
         auto result = std::move(queue_.front());
         queue_.pop_front();
         totalBytes_ -= result.bytes;
@@ -70,10 +79,13 @@ RowVectorPtr TaskQueue::dequeue() {
           mayContinue = std::move(producerUnblockPromises_);
         }
       } else if (
+          std::cout << "InVelox log TaskQueue::dequeue queue_ queue_ empty" << \
+          numProducers_.has_value() << "; " << producersFinished_ << std::endl;
           numProducers_.has_value() && producersFinished_ == numProducers_) {
         return nullptr;
       }
       if (!vector) {
+          std::cout << "InVelox log TaskQueue::dequeue vector is null" << std::endl;
         consumerBlocked_ = true;
         consumerPromise_ = ContinuePromise();
         consumerFuture_ = consumerPromise_.getFuture();
@@ -131,6 +143,7 @@ TaskCursor::TaskCursor(const CursorParameters& params)
       std::move(queryCtx),
       // consumer
       [queue](RowVectorPtr vector, velox::ContinueFuture* future) {
+        std::cout << "InVelox log queue consumer called" << std::endl;
         if (!vector) {
           return queue->enqueue(nullptr, future);
         }
@@ -152,7 +165,7 @@ void TaskCursor::start() {
     std::cout << "InVelox log TaskCursor::start() begin" << std::endl;
     exec::Task::start(task_, maxDrivers_, numConcurrentSplitGroups_);
     queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
-    std::cout << "InVelox log TaskCursor::start() done" << std::endl;
+    std::cout << "InVelox log TaskCursor::start() done" << numSplitGroups_ << " ; " <<  task_->numOutputDrivers() << std::endl;
   }
 }
 
@@ -164,8 +177,10 @@ bool TaskCursor::moveNext() {
     std::rethrow_exception(task_->error());
   }
   if (!current_) {
+    std::cout << "InVelox log TaskCursor::moveNext() no current_" << std::endl;
     atEnd_ = true;
   }
+ std::cout << "InVelox log TaskCursor::moveNext() done" << std::endl;
   return current_ != nullptr;
 }
 
