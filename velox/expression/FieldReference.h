@@ -16,6 +16,9 @@
 #pragma once
 
 #include "velox/expression/SpecialForm.h"
+#define BOOST_STACKTRACE_USE_ADDR2LINE
+#include <boost/stacktrace.hpp>
+#include <iostream>
 
 namespace facebook::velox::exec {
 
@@ -31,7 +34,10 @@ class FieldReference : public SpecialForm {
             field,
             true /* supportsFlatNoNullsFastPath */,
             false /* trackCpuUsage */),
-        field_(field) {}
+        field_(field) {
+    // gjt todo: del this, just for debug
+    // std::cout << boost::stacktrace::stacktrace() << std::endl;
+        }
 
   const std::string& field() const {
     return field_;

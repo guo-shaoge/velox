@@ -33,6 +33,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       const int64_t inputSize = inputNames.size();
       if (colIdx <= inputSize) {
         const auto& inputTypes = inputType->children();
+        std::cout << "InVelox log sel name: " << inputNames[colIdx] << std::endl;
         // Convert type to row.
         return std::make_shared<core::FieldAccessTypedExpr>(
             inputTypes[colIdx],

@@ -188,6 +188,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::ProjectRel& projectRel,
     memory::MemoryPool* pool) {
+    std::cout << "InVelox log projectRel toVeloxPlan beg" << std::endl;
   core::PlanNodePtr childNode;
   if (projectRel.has_input()) {
     childNode = toVeloxPlan(projectRel.input(), pool);
@@ -204,10 +205,12 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
   const auto& inputType = childNode->outputType();
   int colIdx = 0;
+  std::cout << "InVelox log proj expr: " << projectExprs.size() << std::endl;
   for (const auto& expr : projectExprs) {
     expressions.emplace_back(exprConverter_->toVeloxExpr(expr, inputType));
-    projectNames.emplace_back(
-        substraitParser_->makeNodeName(planNodeId_, colIdx));
+    auto name = substraitParser_->makeNodeName(planNodeId_, colIdx);
+    projectNames.emplace_back(name);
+    std::cout << "InVelox log proj name: " << name << std::endl;
     colIdx += 1;
   }
 
@@ -298,7 +301,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   std::vector<std::string> outNames;
   outNames.reserve(colNameList.size());
   for (int idx = 0; idx < colNameList.size(); idx++) {
-    auto outName = substraitParser_->makeNodeName(planNodeId_, idx);
+    auto outName = readRel.base_schema().names()[idx];
     assignments[outName] = std::make_shared<connector::hive::HiveColumnHandle>(
         colNameList[idx],
         connector::hive::HiveColumnHandle::ColumnType::kRegular,

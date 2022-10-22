@@ -31,8 +31,10 @@ void FieldReference::evalSpecialForm(
   VectorRecycler inputRecycler(input, context.vectorPool());
   bool useDecode = false;
   if (inputs_.empty()) {
+      std::cout << "InVelox log inputs empty" << std::endl;
     row = context.row();
   } else {
+      std::cout << "InVelox log inputs not empty, name: " << inputs_[0]->name() << std::endl;
     inputs_[0]->eval(rows, context, input);
 
     if (auto rowTry = input->as<RowVector>()) {
@@ -55,6 +57,7 @@ void FieldReference::evalSpecialForm(
   if (index_ == -1) {
     auto rowType = dynamic_cast<const RowType*>(row->type().get());
     VELOX_CHECK(rowType);
+    std::cout << "InVelox log before getChildIdx" << std::endl;
     index_ = rowType->getChildIdx(field_);
   }
   // If we refer to a column of the context row, this may have been

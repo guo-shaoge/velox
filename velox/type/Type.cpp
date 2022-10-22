@@ -21,9 +21,9 @@
 #include <sstream>
 #include <typeindex>
 #include "velox/common/base/Exceptions.h"
-// #define BOOST_STACKTRACE_USE_ADDR2LINE
-// #include <boost/stacktrace.hpp>
-// #include <iostream>
+#define BOOST_STACKTRACE_USE_ADDR2LINE
+#include <boost/stacktrace.hpp>
+#include <iostream>
 
 namespace std {
 template <>
@@ -340,6 +340,8 @@ bool RowType::containsChild(std::string_view name) const {
 }
 
 uint32_t RowType::getChildIdx(const std::string& name) const {
+    // gjt todo: del this, just for debug
+    // std::cout << boost::stacktrace::stacktrace() << std::endl;
   auto index = getChildIdxIfExists(name);
   if (!index.has_value()) {
     VELOX_USER_FAIL(makeFieldNotFoundErrorMessage(name, names_));

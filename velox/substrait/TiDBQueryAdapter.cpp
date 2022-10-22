@@ -9,6 +9,7 @@ extern "C" {
 #include <velox/common/memory/Memory.h>
 #include <velox/functions/prestosql/Comparisons.h>
 #include <velox/functions/lib/RegistrationHelpers.h>
+#include <velox/functions/prestosql/Arithmetic.h>
 #include <iostream>
 
 namespace facebook::velox {
@@ -21,6 +22,7 @@ struct InitTiDBQueryAdapter {
             ->newConnector(connector::tidb::TiDBConnectorFactory::kTiDBConnectorName, nullptr, nullptr);
         connector::registerConnector(tidbConnector);
 
+        // functions::prestosql::registerArithmeticFunctions();
         functions::registerBinaryScalar<functions::EqFunction, bool>({"eq"});
         functions::registerBinaryScalar<functions::NeqFunction, bool>({"neq"});
         functions::registerBinaryScalar<functions::LtFunction, bool>({"lt"});
@@ -28,6 +30,10 @@ struct InitTiDBQueryAdapter {
         functions::registerBinaryScalar<functions::LteFunction, bool>({"lte"});
         functions::registerBinaryScalar<functions::GteFunction, bool>({"gte"});
         // functions::registerFunction<functions::BetweenFunction, bool, double, double, double>({"btw"});
+        functions::registerBinaryNumeric<functions::PlusFunction>({"plus"});
+        functions::registerBinaryNumeric<functions::MinusFunction>({"minus"});
+        functions::registerBinaryNumeric<functions::MultiplyFunction>({"multiply"});
+        // functions::registerFunction<DivideFunction, double, double, double>({"divide"});
     }
 };
 
@@ -139,7 +145,7 @@ TiDBChunk* fetchVeloxOutput(facebook::velox::TiDBQueryCtx* tidbQueryCtx) {
         } else if (k == TypeKind::DOUBLE) {
             veloxVecToTiDBColumn(*(child->asFlatVector<double>()), columns[i]);
         } else {
-            std::cout << "InVelox log doesn't support this type" << std::endl;
+            std::cout << "InVelox log doesn't support this type " << k << std::endl;
             exit(456);
         }
         std::cout << "InVelox log handle " << std::to_string(i) << " column done" << std::endl;
