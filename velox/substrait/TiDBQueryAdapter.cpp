@@ -10,6 +10,8 @@ extern "C" {
 #include <velox/functions/prestosql/Comparisons.h>
 #include <velox/functions/lib/RegistrationHelpers.h>
 #include <velox/functions/prestosql/Arithmetic.h>
+#include <velox/functions/sparksql/aggregates/Register.h>
+#include <velox/functions/prestosql/aggregates/SumAggregate.h>
 #include <iostream>
 
 namespace facebook::velox {
@@ -34,6 +36,8 @@ struct InitTiDBQueryAdapter {
         functions::registerBinaryNumeric<functions::MinusFunction>({"minus"});
         functions::registerBinaryNumeric<functions::MultiplyFunction>({"multiply"});
         // functions::registerFunction<DivideFunction, double, double, double>({"divide"});
+        functions::sparksql::aggregates::registerAggregateFunctions("");
+        aggregate::registerSumAggregate<aggregate::SumAggregate>("sum");
     }
 };
 
