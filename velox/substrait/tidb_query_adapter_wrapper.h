@@ -13,7 +13,7 @@ typedef struct TiDBColumn {
 } TiDBColumn;
 
 typedef struct TiDBChunk {
-    TiDBColumn** columns;
+    TiDBColumn* columns;
     size_t col_num;
 } TiDBChunk;
 

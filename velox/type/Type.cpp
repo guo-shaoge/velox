@@ -21,6 +21,9 @@
 #include <sstream>
 #include <typeindex>
 #include "velox/common/base/Exceptions.h"
+// #define BOOST_STACKTRACE_USE_ADDR2LINE
+// #include <boost/stacktrace.hpp>
+// #include <iostream>
 
 namespace std {
 template <>

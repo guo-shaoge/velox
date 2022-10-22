@@ -7,6 +7,8 @@ extern "C" {
 #include <velox/exec/tests/utils/Cursor.h>
 #include <velox/connectors/tidb/TiDBConnector.h>
 #include <velox/common/memory/Memory.h>
+#include <velox/functions/prestosql/Comparisons.h>
+#include <velox/functions/lib/RegistrationHelpers.h>
 #include <iostream>
 
 namespace facebook::velox {
@@ -18,6 +20,14 @@ struct InitTiDBQueryAdapter {
                 connector::tidb::TiDBConnectorFactory::kTiDBConnectorName)
             ->newConnector(connector::tidb::TiDBConnectorFactory::kTiDBConnectorName, nullptr, nullptr);
         connector::registerConnector(tidbConnector);
+
+        functions::registerBinaryScalar<functions::EqFunction, bool>({"eq"});
+        functions::registerBinaryScalar<functions::NeqFunction, bool>({"neq"});
+        functions::registerBinaryScalar<functions::LtFunction, bool>({"lt"});
+        functions::registerBinaryScalar<functions::GtFunction, bool>({"gt"});
+        functions::registerBinaryScalar<functions::LteFunction, bool>({"lte"});
+        functions::registerBinaryScalar<functions::GteFunction, bool>({"gte"});
+        // functions::registerFunction<functions::BetweenFunction, bool, double, double, double>({"btw"});
     }
 };
 
@@ -63,10 +73,10 @@ std::shared_ptr<exec::test::TaskCursor> makeVeloxTaskCursor(TiDBQueryCtx* tidbQu
     std::cout << "InVelox log start create TaskCursor" << std::endl;
     auto cursor = std::make_shared<facebook::velox::exec::test::TaskCursor>(param);
     auto* task = cursor->task().get();
-    // std::unordered_set<core::PlanNodeId> leafPlanNodeIds = tidbQueryCtx->veloxPlanNode->leafPlanNodeIds();
-    task->addSplit(tidbQueryCtx->veloxPlanNode->id(),
+    std::unordered_set<core::PlanNodeId> leafPlanNodeIds = tidbQueryCtx->veloxPlanNode->leafPlanNodeIds();
+    // gjt todo: what if multiple leaf nodes. maybe put it into datasource.
+    task->addSplit(*(leafPlanNodeIds.begin()),
             exec::Split(std::make_shared<connector::tidb::TiDBConnectorSplit>(connector::tidb::TiDBConnectorFactory::kTiDBConnectorName)));
-    // task->noMoreSplits(tidbQueryCtx->veloxPlanNode->id());
     cursor->start();
 
     return cursor;
@@ -74,7 +84,7 @@ std::shared_ptr<exec::test::TaskCursor> makeVeloxTaskCursor(TiDBQueryCtx* tidbQu
 
 // gjt todo: all memory are newed, check memory release. Better way is to copy data to go directly.
 template<typename T>
-TiDBColumn* veloxVecToTiDBColumn(const FlatVector<T>& flatVec) {
+void veloxVecToTiDBColumn(const FlatVector<T>& flatVec, TiDBColumn& col) {
     T* data = new T[flatVec.size()]();
     char* nulls = new char[flatVec.size()/8 + 1];
     for (vector_size_t j = 0; j < flatVec.size(); ++j) {
@@ -83,12 +93,10 @@ TiDBColumn* veloxVecToTiDBColumn(const FlatVector<T>& flatVec) {
     for (vector_size_t j = 0; j < flatVec.size(); ++j) {
         data[j] = flatVec.valueAt(j);
     }
-    auto* col = new TiDBColumn();
-    col->data = data;
-    col->nullBitmap = nulls;
-    col->offsets = nullptr;
-    col->length = static_cast<size_t>(flatVec.size());
-    return col;
+    col.data = data;
+    col.nullBitmap = nulls;
+    col.offsets = nullptr;
+    col.length = static_cast<size_t>(flatVec.size());
 }
 
 TiDBChunk* fetchVeloxOutput(facebook::velox::TiDBQueryCtx* tidbQueryCtx) {
@@ -96,18 +104,15 @@ TiDBChunk* fetchVeloxOutput(facebook::velox::TiDBQueryCtx* tidbQueryCtx) {
 
     auto cursor = tidbQueryCtx->veloxTaskCursor;
     auto* task = cursor->task().get();
+    std::unordered_set<core::PlanNodeId> leafPlanNodeIds = tidbQueryCtx->veloxPlanNode->leafPlanNodeIds();
     if (!tidbQueryCtx->noMoreInput) {
-        task->addSplit(tidbQueryCtx->veloxPlanNode->id(),
+        task->addSplit(*(leafPlanNodeIds.begin()),
                 exec::Split(std::make_shared<connector::tidb::TiDBConnectorSplit>(connector::tidb::TiDBConnectorFactory::kTiDBConnectorName)));
         std::cout << "InVelox log start fetch velox output split added" << std::endl;
     } else {
-        task->noMoreSplits(tidbQueryCtx->veloxPlanNode->id());
+        task->noMoreSplits(*(leafPlanNodeIds.begin()));
         std::cout << "InVelox log start fetch velox output nosplit added" << std::endl;
     }
-    // if (!cursor->moveNext() || tidbQueryCtx->noMoreInput) {
-    //     std::cout << "InVelox log fetchVeloxOutput rowVec null, no more input" << std::endl;
-    //     return nullptr;
-    // }
     bool moveSucc = cursor->moveNext();
     if (!moveSucc) {
         std::cout << "InVelox log fetchVeloxOutput moveNext: " << moveSucc << std::endl;
@@ -122,19 +127,17 @@ TiDBChunk* fetchVeloxOutput(facebook::velox::TiDBQueryCtx* tidbQueryCtx) {
     std::cout << "InVelox log fetch velox output done" << std::endl;
 
     // gjt todo: check memory release.
-    TiDBColumn** columns = new TiDBColumn*[rowVec->childrenSize()];
+    TiDBColumn* columns = new TiDBColumn[rowVec->childrenSize()];
     for (size_t i = 0; i < rowVec->childrenSize(); ++i) {
         std::cout << "InVelox log handle " << std::to_string(i) << " column begin" << std::endl;
         auto& child = rowVec->childAt(i);
         auto k = child->type()->kind();
-        if (k == TypeKind::INTEGER) {
-            columns[i] = veloxVecToTiDBColumn(*(child->asFlatVector<int32_t>()));
-        } else if (k == TypeKind::BIGINT) {
-            columns[i] = veloxVecToTiDBColumn(*(child->asFlatVector<int64_t>()));
+        if (k == TypeKind::INTEGER || k == TypeKind::BIGINT) {
+            veloxVecToTiDBColumn(*(child->asFlatVector<int64_t>()), columns[i]);
         } else if (k == TypeKind::REAL) {
-            columns[i] = veloxVecToTiDBColumn(*(child->asFlatVector<float>()));
+            veloxVecToTiDBColumn(*(child->asFlatVector<float>()), columns[i]);
         } else if (k == TypeKind::DOUBLE) {
-            columns[i] = veloxVecToTiDBColumn(*(child->asFlatVector<double>()));
+            veloxVecToTiDBColumn(*(child->asFlatVector<double>()), columns[i]);
         } else {
             std::cout << "InVelox log doesn't support this type" << std::endl;
             exit(456);
@@ -162,7 +165,7 @@ void fetch_velox_output(CGoTiDBQueryCtx ctx, TiDBColumn** out_cols, size_t* out_
     auto* tidbQueryCtx = reinterpret_cast<facebook::velox::TiDBQueryCtx*>(ctx);
     TiDBChunk* res = facebook::velox::fetchVeloxOutput(tidbQueryCtx);
     if (res != nullptr) {
-        *out_cols = *(res->columns);
+        *out_cols = res->columns;
         *out_col_num = res->col_num;
     } else {
         *out_col_num = 0;

@@ -66,9 +66,7 @@ CGoStdVector tidb_chunk_column_to_velox_vector(
     tidbColumn.nullBitmap = nullBitmap;
     tidbColumn.offsets = offsets;
     tidbColumn.length = length;
-    if (type == kTiDBColumnTypeInt32) {
-        return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<int32_t>(tidbColumn));
-    } else if (type == kTiDBColumnTypeInt64) {
+    if (type == kTiDBColumnTypeInt32 || type == kTiDBColumnTypeInt64) {
         return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<int64_t>(tidbColumn));
     } else if (type == kTiDBColumnTypeFloat) {
         return reinterpret_cast<CGoStdVector>(decodeFixedTypeNullable<float>(tidbColumn));
@@ -101,10 +99,7 @@ void enqueue_std_vectors(
     std::vector<VeloxNS::VectorPtr> results;
     results.reserve(num_vec);
     for (size_t i = 0; i < num_vec; ++i) {
-        if (tidbTypes[i] == kTiDBColumnTypeInt32) {
-            auto* stdVector = reinterpret_cast<const std::vector<std::optional<int32_t>>*>(vectors[i]);
-            convertStdVectorToVeloxVector<int32_t>(vectorMaker, *stdVector, results);
-        } else if (tidbTypes[i] == kTiDBColumnTypeInt64) {
+        if (tidbTypes[i] == kTiDBColumnTypeInt32 || tidbTypes[i] == kTiDBColumnTypeInt64) {
             auto* stdVector = reinterpret_cast<const std::vector<std::optional<int64_t>>*>(vectors[i]);
             convertStdVectorToVeloxVector<int64_t>(vectorMaker, *stdVector, results);
         } else if (tidbTypes[i] == kTiDBColumnTypeFloat) {
@@ -134,8 +129,6 @@ void enqueue_std_vectors(
 void no_more_input(CGoTiDBQueryCtx ctx, const char* dsID, size_t dsIDLen) {
     auto* tidbQueryCtx = reinterpret_cast<facebook::velox::TiDBQueryCtx*>(ctx);
     std::cout << "InVelox log no more input" << std::endl;
-    // auto* task = tidbQueryCtx->veloxTaskCursor->task().get();
-    // task->noMoreSplits(tidbQueryCtx->veloxPlanNode->id());
     tidbQueryCtx->noMoreInput = true;
 
     const auto& dsIDStr = std::string(dsID, dsIDLen);
